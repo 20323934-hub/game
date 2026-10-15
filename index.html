@@ -332,4 +332,102 @@
 
     <!-- Win Screen -->
     <div id="win-screen" style="display: none;">
-        <h1>VICTORY
+        <h1>VICTORY!</h1>
+        <p>Congratulations! You completed all 50 levels of the parkour challenge!</p>
+        <p>Total Deaths: <span id="final-deaths" style="color: #ff007f; font-weight: bold; font-size: 24px;">0</span></p>
+        <button class="btn" id="reload-btn">PLAY AGAIN</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        const controls = { forward: false, backward: false, left: false, right: false };
+        
+        let cameraMode = '1st';
+        let isPaused = false;
+        let isGameStarted = false;
+
+        const player = {
+            position: new THREE.Vector3(0, 4, 0),
+            velocity: new THREE.Vector3(0, 0, 0),
+            height: 1.7,
+            radius: 0.35,
+            speed: 11.5,
+            jumpStrength: 10.5,
+            jumpsLeft: 2,
+            maxJumps: 2,
+            isGrounded: false,
+            rotation: new THREE.Euler(0, 0, 0, 'YXZ')
+        };
+
+        let playerCharacterMesh = null;
+
+        let currentLevel = 1;
+        let totalDeaths = 0;
+        let lastCheckpoint = null;
+        let levelPlatforms = [];
+        let goalMesh = null;
+        let checkpointMeshes = [];
+        let hazardMeshes = [];
+        
+        let isPointerLocked = false;
+        const mouseSensitivity = 0.0022;
+        const GRAVITY = 27.0;
+        const VOID_Y = -20.0;
+
+        function selectPOV(mode) {
+            cameraMode = mode;
+            const btn1stStart = document.getElementById('pov-1st-start');
+            const btn3rdStart = document.getElementById('pov-3rd-start');
+            const btn1stPause = document.getElementById('pov-1st-pause');
+            const btn3rdPause = document.getElementById('pov-3rd-pause');
+
+            if (btn1stStart) btn1stStart.className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
+            if (btn3rdStart) btn3rdStart.className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
+            if (btn1stPause) btn1stPause.className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
+            if (btn3rdPause) btn3rdPause.className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
+
+            const crosshair = document.getElementById('crosshair');
+            if (crosshair) crosshair.style.display = mode === '1st' ? 'block' : 'none';
+
+            if (playerCharacterMesh) {
+                playerCharacterMesh.visible = (mode === '3rd');
+            }
+        }
+
+        function toggleMenu() {
+            if (!isGameStarted) return;
+            if (isPaused) {
+                resumeGame();
+            } else {
+                pauseGame();
+            }
+        }
+
+        function pauseGame() {
+            isPaused = true;
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            document.getElementById('pause-screen').style.display = 'flex';
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            document.getElementById('pause-screen').style.display = 'none';
+            document.body.requestPointerLock();
+        }
+
+        function restartCurrentLevel() {
+            isPaused = false;
+            document.getElementById('pause-screen').style.display = 'none';
+            respawnPlayer();
+            document.body.requestPointerLock();
+        }
+
+        function returnToStartScreen() {
+            isPaused = false;
+            isGameStarted = false;
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            document.getElementById
