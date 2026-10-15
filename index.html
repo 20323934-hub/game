@@ -54,7 +54,7 @@
             width: 2px;
             height: 10px;
         }
-        #ui-overlay {
+        #ui-hud {
             position: absolute;
             top: 0;
             left: 0;
@@ -65,7 +65,7 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 20px;
-            z-index: 6;
+            z-index: 10;
         }
         .hud-panel {
             background: rgba(15, 20, 30, 0.85);
@@ -156,7 +156,7 @@
             background: #00ffcc;
             box-shadow: 0 0 12px #00ffcc;
         }
-        #start-screen, #pause-screen, #win-screen {
+        .screen-overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -168,8 +168,7 @@
             justify-content: center;
             align-items: center;
             color: #fff;
-            z-index: 20;
-            pointer-events: auto;
+            z-index: 100;
         }
         h1 {
             font-size: 48px;
@@ -261,6 +260,7 @@
             pointer-events: none;
             box-shadow: 0 0 20px #00ffcc;
             letter-spacing: 1px;
+            z-index: 15;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -269,7 +269,7 @@
     <div id="game-container"></div>
     <div id="crosshair"></div>
     
-    <div id="ui-overlay">
+    <div id="ui-hud">
         <div class="top-hud">
             <div class="hud-panel">
                 <div class="level-title" id="level-display">Level 1</div>
@@ -280,7 +280,7 @@
                     <div>Deaths: <span class="stat-value" id="deaths-display">0</span></div>
                     <div>Checkpoint: <span class="stat-value" id="checkpoint-display" style="color:#aaa;">None</span></div>
                 </div>
-                <button class="menu-hud-btn" id="hud-menu-btn">CHANGE POV / MENU (P)</button>
+                <button class="menu-hud-btn" id="hud-menu-btn">MENU (P)</button>
             </div>
         </div>
         
@@ -288,7 +288,7 @@
 
         <div class="bottom-hud">
             <div class="hud-panel controls-hint">
-                WASD: Move &nbsp;|&nbsp; SPACE: Jump / Double Jump &nbsp;|&nbsp; R: Respawn &nbsp;|&nbsp; P: Change POV / Menu
+                WASD: Move &nbsp;|&nbsp; SPACE: Jump / Double Jump &nbsp;|&nbsp; R: Respawn &nbsp;|&nbsp; P: Menu
             </div>
             <div class="hud-panel">
                 <div style="font-size: 11px; margin-bottom: 6px; color: #aaa; font-weight: bold; letter-spacing: 1px;">DOUBLE JUMP</div>
@@ -296,138 +296,3 @@
                     <div class="jump-pip active" id="pip-1"></div>
                     <div class="jump-pip active" id="pip-2"></div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Start Screen -->
-    <div id="start-screen">
-        <h1>50-LEVEL PARKOUR</h1>
-        <p>Select your camera perspective and conquer 50 parkour levels!</p>
-        
-        <div class="pov-selector">
-            <button class="pov-btn selected" id="pov-1st-start">FIRST PERSON</button>
-            <button class="pov-btn" id="pov-3rd-start">THIRD PERSON</button>
-        </div>
-
-        <button class="btn" id="start-btn">START GAME</button>
-    </div>
-
-    <!-- Pause / Change POV Screen -->
-    <div id="pause-screen" style="display: none;">
-        <h1>SELECT PERSPECTIVE</h1>
-        <p>Switch your point of view or resume your game.</p>
-        
-        <div class="pov-selector">
-            <button class="pov-btn selected" id="pov-1st-pause">FIRST PERSON</button>
-            <button class="pov-btn" id="pov-3rd-pause">THIRD PERSON</button>
-        </div>
-
-        <div class="btn-group">
-            <button class="btn" id="resume-btn">RESUME GAME</button>
-            <button class="btn btn-secondary" id="restart-btn">RESTART LEVEL (R)</button>
-            <button class="btn btn-secondary" id="main-menu-btn">MAIN MENU</button>
-        </div>
-    </div>
-
-    <!-- Win Screen -->
-    <div id="win-screen" style="display: none;">
-        <h1>VICTORY!</h1>
-        <p>Congratulations! You completed all 50 levels of the parkour challenge!</p>
-        <p>Total Deaths: <span id="final-deaths" style="color: #ff007f; font-weight: bold; font-size: 24px;">0</span></p>
-        <button class="btn" id="reload-btn">PLAY AGAIN</button>
-    </div>
-
-    <script>
-        let scene, camera, renderer;
-        const controls = { forward: false, backward: false, left: false, right: false };
-        
-        let cameraMode = '1st';
-        let isPaused = false;
-        let isGameStarted = false;
-
-        const player = {
-            position: new THREE.Vector3(0, 4, 0),
-            velocity: new THREE.Vector3(0, 0, 0),
-            height: 1.7,
-            radius: 0.35,
-            speed: 11.5,
-            jumpStrength: 10.5,
-            jumpsLeft: 2,
-            maxJumps: 2,
-            isGrounded: false,
-            rotation: new THREE.Euler(0, 0, 0, 'YXZ')
-        };
-
-        let playerCharacterMesh = null;
-
-        let currentLevel = 1;
-        let totalDeaths = 0;
-        let lastCheckpoint = null;
-        let levelPlatforms = [];
-        let goalMesh = null;
-        let checkpointMeshes = [];
-        let hazardMeshes = [];
-        
-        let isPointerLocked = false;
-        const mouseSensitivity = 0.0022;
-        const GRAVITY = 27.0;
-        const VOID_Y = -20.0;
-
-        function selectPOV(mode) {
-            cameraMode = mode;
-            const btn1stStart = document.getElementById('pov-1st-start');
-            const btn3rdStart = document.getElementById('pov-3rd-start');
-            const btn1stPause = document.getElementById('pov-1st-pause');
-            const btn3rdPause = document.getElementById('pov-3rd-pause');
-
-            if (btn1stStart) btn1stStart.className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
-            if (btn3rdStart) btn3rdStart.className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
-            if (btn1stPause) btn1stPause.className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
-            if (btn3rdPause) btn3rdPause.className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
-
-            const crosshair = document.getElementById('crosshair');
-            if (crosshair) crosshair.style.display = mode === '1st' ? 'block' : 'none';
-
-            if (playerCharacterMesh) {
-                playerCharacterMesh.visible = (mode === '3rd');
-            }
-        }
-
-        function toggleMenu() {
-            if (!isGameStarted) return;
-            if (isPaused) {
-                resumeGame();
-            } else {
-                pauseGame();
-            }
-        }
-
-        function pauseGame() {
-            isPaused = true;
-            if (document.pointerLockElement) {
-                document.exitPointerLock();
-            }
-            document.getElementById('pause-screen').style.display = 'flex';
-        }
-
-        function resumeGame() {
-            isPaused = false;
-            document.getElementById('pause-screen').style.display = 'none';
-            document.body.requestPointerLock();
-        }
-
-        function restartCurrentLevel() {
-            isPaused = false;
-            document.getElementById('pause-screen').style.display = 'none';
-            respawnPlayer();
-            document.body.requestPointerLock();
-        }
-
-        function returnToStartScreen() {
-            isPaused = false;
-            isGameStarted = false;
-            if (document.pointerLockElement) {
-                document.exitPointerLock();
-            }
-            document.getElementById
