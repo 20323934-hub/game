@@ -1,155 +1,794 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Arcade Zone</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    body {
-      background-color: #0f172a;
-      color: #f8fafc;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    h1 {
-      margin-bottom: 20px;
-      color: #38bdf8;
-      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      width: 100%;
-      max-width: 900px;
-    }
-    .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      transition: transform 0.2s, border-color 0.2s;
-    }
-    .card:hover {
-      transform: translateY(-5px);
-      border-color: #38bdf8;
-    }
-    .card h2 {
-      margin-bottom: 10px;
-      color: #f1f5f9;
-    }
-    .card p {
-      font-size: 0.9rem;
-      color: #94a3b8;
-      margin-bottom: 15px;
-    }
-    .play-btn {
-      background: #0284c7;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s;
-    }
-    .play-btn:hover {
-      background: #0369a1;
-    }
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      z-index: 100;
-    }
-    .modal-content {
-      background: #0f172a;
-      border: 2px solid #38bdf8;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 800px;
-      height: 80vh;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-    }
-    .close-btn {
-      position: absolute;
-      top: 10px;
-      right: 15px;
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      z-index: 101;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      border-radius: 0 0 10px 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Parkour Game (50 Levels - 1st/3rd Person)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0c10;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 4px rgba(0,0,0,0.8);
+        }
+        #crosshair::before {
+            top: 4px;
+            left: 0;
+            width: 10px;
+            height: 2px;
+        }
+        #crosshair::after {
+            top: 0;
+            left: 4px;
+            width: 2px;
+            height: 10px;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            z-index: 6;
+        }
+        .hud-panel {
+            background: rgba(15, 20, 30, 0.85);
+            border: 1px solid rgba(0, 255, 204, 0.4);
+            border-radius: 8px;
+            padding: 12px 20px;
+            color: #fff;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+        .top-hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .level-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+        .zone-title {
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 3px;
+            font-weight: 500;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .stat-value {
+            color: #ff007f;
+            font-weight: 800;
+        }
+        .bottom-hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .controls-hint {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+            font-weight: 500;
+        }
+        .jump-indicator {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .jump-pip {
+            width: 14px;
+            height: 26px;
+            background: #222;
+            border: 2px solid #00ffcc;
+            border-radius: 4px;
+            transition: background 0.15s, box-shadow 0.15s;
+        }
+        .jump-pip.active {
+            background: #00ffcc;
+            box-shadow: 0 0 12px #00ffcc;
+        }
+        #start-screen, #win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 12, 18, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        h1 {
+            font-size: 48px;
+            color: #00ffcc;
+            margin-bottom: 10px;
+            text-shadow: 0 0 25px rgba(0, 255, 204, 0.6);
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        p {
+            font-size: 16px;
+            color: #ccc;
+            margin-bottom: 25px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .pov-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 35px;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+        }
+        .pov-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            padding: 12px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pov-btn.selected {
+            background: #00ffcc;
+            color: #050508;
+            box-shadow: 0 0 15px #00ffcc;
+        }
+        .btn {
+            background: linear-gradient(135deg, #ff007f, #7f00ff);
+            border: none;
+            color: white;
+            padding: 16px 45px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 127, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 0, 127, 0.8);
+        }
+        #toast {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 204, 0.95);
+            color: #050508;
+            padding: 12px 32px;
+            border-radius: 25px;
+            font-weight: 800;
+            font-size: 18px;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            box-shadow: 0 0 20px #00ffcc;
+            letter-spacing: 1px;
+        }
+    </style>
+    <!-- Three.js Library via HTTPS CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
+    <div id="game-container"></div>
+    <div id="crosshair"></div>
+    
+    <div id="ui-overlay">
+        <div class="top-hud">
+            <div class="hud-panel">
+                <div class="level-title" id="level-display">Level 1</div>
+                <div class="zone-title" id="zone-display">Zone 1: Rooftop Training</div>
+            </div>
+            <div class="hud-panel stats">
+                <div>Deaths: <span class="stat-value" id="deaths-display">0</span></div>
+                <div>Checkpoint: <span class="stat-value" id="checkpoint-display" style="color:#aaa;">None</span></div>
+            </div>
+        </div>
+        
+        <div id="toast">CHECKPOINT REACHED!</div>
 
-  <h1>🎮 Arcade Zone</h1>
-
-  <div class="grid">
-    <div class="card">
-      <h2>Slope</h2>
-      <p>Drive the ball down the steep slopes and avoid obstacles.</p>
-      <button class="play-btn" onclick="openGame('https://ubg77.github.io/edit/slope/')">Play Slope</button>
+        <div class="bottom-hud">
+            <div class="hud-panel controls-hint">
+                WASD: Move &nbsp;|&nbsp; SPACE: Jump / Double Jump &nbsp;|&nbsp; R: Respawn
+            </div>
+            <div class="hud-panel">
+                <div style="font-size: 11px; margin-bottom: 6px; color: #aaa; font-weight: bold; letter-spacing: 1px;">DOUBLE JUMP</div>
+                <div class="jump-indicator">
+                    <div class="jump-pip active" id="pip-1"></div>
+                    <div class="jump-pip active" id="pip-2"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-      <h2>Gunblood</h2>
-      <p>Test your reaction speed in western duels.</p>
-      <button class="play-btn" onclick="openGame('https://efebal1.github.io/gunblood/')">Play Gunblood</button>
+    <div id="start-screen">
+        <h1>50-LEVEL PARKOUR</h1>
+        <p>Select your perspective and conquer 50 parkour levels across 4 difficulty zones!</p>
+        
+        <div class="pov-selector">
+            <button class="pov-btn selected" id="pov-1st" onclick="selectPOV('1st')">FIRST PERSON</button>
+            <button class="pov-btn" id="pov-3rd" onclick="selectPOV('3rd')">THIRD PERSON</button>
+        </div>
+
+        <button class="btn" id="start-btn">START GAME</button>
     </div>
-  </div>
 
-  <div id="gameModal" class="modal">
-    <div class="modal-content">
-      <button class="close-btn" onclick="closeGame()">Close ✖</button>
-      <iframe id="gameFrame" src=""></iframe>
+    <div id="win-screen" style="display: none;">
+        <h1>VICTORY!</h1>
+        <p>Congratulations! You completed all 50 levels of the ultimate parkour challenge.</p>
+        <p>Total Deaths: <span id="final-deaths" style="color: #ff007f; font-weight: bold; font-size: 24px;">0</span></p>
+        <button class="btn" onclick="location.reload()">PLAY AGAIN</button>
     </div>
-  </div>
 
-  <script>
-    const modal = document.getElementById('gameModal');
-    const frame = document.getElementById('gameFrame');
+    <script>
+        let scene, camera, renderer;
+        const controls = { forward: false, backward: false, left: false, right: false };
+        
+        let cameraMode = '1st';
 
-    function openGame(url) {
-      frame.src = url;
-      modal.style.display = 'flex';
-    }
+        const player = {
+            position: new THREE.Vector3(0, 4, 0),
+            velocity: new THREE.Vector3(0, 0, 0),
+            height: 1.7,
+            radius: 0.35,
+            speed: 11.5,
+            jumpStrength: 10.5,
+            jumpsLeft: 2,
+            maxJumps: 2,
+            isGrounded: false,
+            rotation: new THREE.Euler(0, 0, 0, 'YXZ')
+        };
 
-    function closeGame() {
-      modal.style.display = 'none';
-      frame.src = '';
-    }
-  </script>
+        let playerCharacterMesh = null;
+
+        let currentLevel = 1;
+        let totalDeaths = 0;
+        let lastCheckpoint = null;
+        let levelPlatforms = [];
+        let goalMesh = null;
+        let checkpointMeshes = [];
+        let hazardMeshes = [];
+        
+        let isPointerLocked = false;
+        const mouseSensitivity = 0.0022;
+        const GRAVITY = 27.0;
+        const VOID_Y = -20.0;
+
+        function selectPOV(mode) {
+            cameraMode = mode;
+            document.getElementById('pov-1st').className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
+            document.getElementById('pov-3rd').className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
+            document.getElementById('crosshair').style.display = mode === '1st' ? 'block' : 'none';
+        }
+
+        function init() {
+            const container = document.getElementById('game-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b0c10);
+            scene.fog = new THREE.FogExp2(0x0b0c10, 0.012);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+            sun.position.set(25, 45, 20);
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = 2048;
+            sun.shadow.mapSize.height = 2048;
+            sun.shadow.camera.near = 0.5;
+            sun.shadow.camera.far = 200;
+            const d = 50;
+            sun.shadow.camera.left = -d;
+            sun.shadow.camera.right = d;
+            sun.shadow.camera.top = d;
+            sun.shadow.camera.bottom = -d;
+            scene.add(sun);
+
+            createCharacterAvatar();
+
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('mousemove', onMouseMove);
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                document.getElementById('start-screen').style.display = 'none';
+                renderer.domElement.requestPointerLock();
+            });
+
+            renderer.domElement.addEventListener('click', () => {
+                if (!isPointerLocked) renderer.domElement.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = (document.pointerLockElement === renderer.domElement);
+            });
+
+            loadLevel(1);
+
+            let lastTime = performance.now();
+            function animate(now) {
+                requestAnimationFrame(animate);
+                const delta = Math.min((now - lastTime) / 1000, 0.08);
+                lastTime = now;
+
+                if (isPointerLocked) {
+                    updatePlayerPhysics(delta);
+                }
+
+                if (goalMesh) goalMesh.rotation.y = now * 0.002;
+                checkpointMeshes.forEach(cp => {
+                    if (cp.ringMesh) cp.ringMesh.rotation.z = now * 0.002;
+                });
+
+                renderer.render(scene, camera);
+            }
+            animate(lastTime);
+        }
+
+        function createCharacterAvatar() {
+            const avatarGroup = new THREE.Group();
+
+            const bodyGeo = new THREE.CylinderGeometry(0.3, 0.25, 1.0, 12);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            body.castShadow = true;
+            avatarGroup.add(body);
+
+            const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xff007f, roughness: 0.2 });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 1.15;
+            head.castShadow = true;
+            avatarGroup.add(head);
+
+            playerCharacterMesh = avatarGroup;
+            scene.add(playerCharacterMesh);
+        }
+
+        function getZoneData(lvl) {
+            if (lvl <= 10) return { name: "Zone 1: Rooftop Training", mainColor: 0x00ffcc, bg: 0x0a0f18 };
+            if (lvl <= 25) return { name: "Zone 2: Cyber Factory", mainColor: 0xff0055, bg: 0x140a10 };
+            if (lvl <= 40) return { name: "Zone 3: Neon Skyline", mainColor: 0xaa00ff, bg: 0x0f0a18 };
+            return { name: "Zone 4: Void Citadel", mainColor: 0xffaa00, bg: 0x08060a };
+        }
+
+        function clearCurrentLevel() {
+            levelPlatforms.forEach(p => scene.remove(p.mesh));
+            checkpointMeshes.forEach(cp => scene.remove(cp.group));
+            hazardMeshes.forEach(h => scene.remove(h.mesh));
+            if (goalMesh) scene.remove(goalMesh);
+
+            levelPlatforms = [];
+            checkpointMeshes = [];
+            hazardMeshes = [];
+            goalMesh = null;
+        }
+
+        function createPlatform(x, y, z, width, height, depth, color, isHazard = false) {
+            const geo = new THREE.BoxGeometry(width, height, depth);
+            const mat = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.3,
+                metalness: 0.2,
+                emissive: isHazard ? 0xff0022 : 0x000000,
+                emissiveIntensity: isHazard ? 0.6 : 0
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            mesh.receiveShadow = true;
+            mesh.castShadow = true;
+            scene.add(mesh);
+
+            const boundingBox = new THREE.Box3().setFromObject(mesh);
+            const platData = { mesh, boundingBox, topY: y + (height / 2), isHazard };
+
+            if (isHazard) {
+                hazardMeshes.push(platData);
+            } else {
+                levelPlatforms.push(platData);
+            }
+            return platData;
+        }
+
+        function createCheckpoint(x, y, z) {
+            const group = new THREE.Group();
+            const baseGeo = new THREE.CylinderGeometry(1.4, 1.4, 0.15, 16);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            group.add(base);
+
+            const ringGeo = new THREE.TorusGeometry(1.1, 0.08, 12, 24);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = Math.PI / 2;
+            ringMesh.position.y = 0.1;
+            group.add(ringMesh);
+
+            group.position.set(x, y, z);
+            scene.add(group);
+
+            checkpointMeshes.push({
+                group,
+                ringMesh,
+                ringMat,
+                pos: new THREE.Vector3(x, y + 1.2, z),
+                active: false
+            });
+        }
+
+        function createGoal(x, y, z) {
+            const geo = new THREE.OctahedronGeometry(1.2, 0);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true });
+            goalMesh = new THREE.Mesh(geo, mat);
+            goalMesh.position.set(x, y, z);
+
+            const pLight = new THREE.PointLight(0x00ffcc, 2.5, 12);
+            goalMesh.add(pLight);
+            scene.add(goalMesh);
+        }
+
+        function loadLevel(lvl) {
+            clearCurrentLevel();
+            currentLevel = lvl;
+            lastCheckpoint = null;
+
+            const zone = getZoneData(lvl);
+            scene.background.setHex(zone.bg);
+            scene.fog.color.setHex(zone.bg);
+
+            document.getElementById('level-display').innerText = `Level ${lvl} / 50`;
+            document.getElementById('level-display').style.color = `#${zone.mainColor.toString(16).padStart(6, '0')}`;
+            document.getElementById('zone-display').innerText = zone.name;
+            document.getElementById('checkpoint-display').innerText = "None";
+            document.getElementById('checkpoint-display').style.color = "#aaa";
+
+            const startPos = new THREE.Vector3(0, 3, 0);
+            createPlatform(startPos.x, startPos.y - 1, startPos.z, 6, 2, 6, 0x222235);
+
+            let curr = startPos.clone();
+            const platformCount = 5 + Math.floor(lvl * 0.5);
+            
+            let maxGapDistance, platformWidth, hazardProbability = 0;
+
+            if (lvl <= 10) {
+                maxGapDistance = 5 + (lvl * 0.25);
+                platformWidth = Math.max(3.5, 5.5 - (lvl * 0.15));
+            } else if (lvl <= 25) {
+                maxGapDistance = 6 + ((lvl - 10) * 0.3);
+                platformWidth = Math.max(3.0, 4.8 - ((lvl - 10) * 0.1));
+                hazardProbability = Math.min(0.25, (lvl - 12) * 0.02);
+            } else if (lvl <= 40) {
+                maxGapDistance = 8 + ((lvl - 25) * 0.35);
+                platformWidth = Math.max(2.2, 3.5 - ((lvl - 25) * 0.08));
+                hazardProbability = 0.25;
+            } else {
+                maxGapDistance = 12 + ((lvl - 40) * 0.4);
+                platformWidth = Math.max(1.8, 2.5 - ((lvl - 40) * 0.05));
+                hazardProbability = 0.35;
+            }
+
+            const checkpointFreq = (lvl <= 15) ? 4 : (lvl <= 30 ? 5 : 7);
+
+            for (let i = 1; i <= platformCount; i++) {
+                const angle = (Math.sin(i * 0.6 + lvl) * 0.35) * (lvl > 5 ? 1 : 0);
+                const gap = 4.5 + Math.random() * (maxGapDistance - 4.5);
+                
+                let deltaY = (Math.random() - 0.3) * (lvl > 5 ? 2.5 : 0.8);
+                if (lvl > 25 && i % 2 === 0) deltaY += 1.8;
+
+                curr.x += Math.sin(angle) * gap + (Math.sin(i) * (lvl > 10 ? 2 : 0));
+                curr.z -= Math.cos(angle) * gap;
+                curr.y += deltaY;
+
+                let isHazard = false;
+                let color = zone.mainColor;
+
+                if (Math.random() < hazardProbability && i < platformCount && i > 1) {
+                    isHazard = true;
+                    color = 0xff0033;
+                }
+
+                createPlatform(curr.x, curr.y - 1, curr.z, platformWidth, 2, platformWidth, color, isHazard);
+
+                if (i % checkpointFreq === 0 && i < platformCount - 1 && !isHazard) {
+                    createCheckpoint(curr.x, curr.y, curr.z);
+                }
+            }
+
+            curr.z -= 7;
+            createPlatform(curr.x, curr.y - 1, curr.z, 6, 2, 6, 0x00ffcc);
+            createGoal(curr.x, curr.y + 1.5, curr.z);
+
+            respawnPlayer();
+        }
+
+        function onKeyDown(e) {
+            switch (e.code) {
+                case 'KeyW': controls.forward = true; break;
+                case 'KeyS': controls.backward = true; break;
+                case 'KeyA': controls.left = true; break;
+                case 'KeyD': controls.right = true; break;
+                case 'Space': 
+                    if (isPointerLocked) executeJump(); 
+                    break;
+                case 'KeyR':
+                    if (isPointerLocked) triggerDeath();
+                    break;
+            }
+        }
+
+        function onKeyUp(e) {
+            switch (e.code) {
+                case 'KeyW': controls.forward = false; break;
+                case 'KeyS': controls.backward = false; break;
+                case 'KeyA': controls.left = false; break;
+                case 'KeyD': controls.right = false; break;
+            }
+        }
+
+        function onMouseMove(e) {
+            if (!isPointerLocked) return;
+            player.rotation.y -= e.movementX * mouseSensitivity;
+            player.rotation.x -= e.movementY * mouseSensitivity;
+            player.rotation.x = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, player.rotation.x));
+        }
+
+        function executeJump() {
+            if (player.jumpsLeft > 0) {
+                player.velocity.y = player.jumpStrength;
+                player.jumpsLeft--;
+                updateJumpUI();
+            }
+        }
+
+        function updateJumpUI() {
+            document.getElementById('pip-1').className = `jump-pip ${player.jumpsLeft >= 1 ? 'active' : ''}`;
+            document.getElementById('pip-2').className = `jump-pip ${player.jumpsLeft >= 2 ? 'active' : ''}`;
+        }
+
+        function updatePlayerPhysics(delta) {
+            player.velocity.y -= GRAVITY * delta;
+
+            const moveDir = new THREE.Vector3();
+            if (controls.forward) moveDir.z -= 1;
+            if (controls.backward) moveDir.z += 1;
+            if (controls.left) moveDir.x -= 1;
+            if (controls.right) moveDir.x += 1;
+            moveDir.normalize();
+
+            const yaw = new THREE.Euler(0, player.rotation.y, 0, 'YXZ');
+            moveDir.applyEuler(yaw);
+
+            player.velocity.x = moveDir.x * player.speed;
+            player.velocity.z = moveDir.z * player.speed;
+
+            player.position.x += player.velocity.x * delta;
+            player.position.z += player.velocity.z * delta;
+
+            const nextY = player.position.y + (player.velocity.y * delta);
+            const feetY = nextY - (player.height / 2);
+
+            let groundedPlatform = null;
+            let highestLandingY = -Infinity;
+
+            const rayOffsets = [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(player.radius, 0, 0),
+                new THREE.Vector3(-player.radius, 0, 0),
+                new THREE.Vector3(0, 0, player.radius),
+                new THREE.Vector3(0, 0, -player.radius)
+            ];
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.far = (player.height / 2) + Math.max(0.5, Math.abs(player.velocity.y * delta) + 0.3);
+
+            for (let offset of rayOffsets) {
+                const origin = player.position.clone().add(offset);
+                raycaster.set(origin, new THREE.Vector3(0, -1, 0));
+
+                const hits = raycaster.intersectObjects(levelPlatforms.map(p => p.mesh));
+                if (hits.length > 0) {
+                    const hit = hits[0];
+                    if (hit.point.y > highestLandingY) {
+                        highestLandingY = hit.point.y;
+                        groundedPlatform = hit.object;
+                    }
+                }
+            }
+
+            if (groundedPlatform && player.velocity.y <= 0 && feetY <= highestLandingY + 0.15) {
+                player.position.y = highestLandingY + (player.height / 2);
+                player.velocity.y = 0;
+                if (!player.isGrounded) {
+                    player.isGrounded = true;
+                    player.jumpsLeft = player.maxJumps;
+                    updateJumpUI();
+                }
+            } else {
+                player.position.y = nextY;
+                player.isGrounded = false;
+            }
+
+            if (playerCharacterMesh) {
+                playerCharacterMesh.position.copy(player.position);
+                playerCharacterMesh.position.y -= player.height / 2;
+                playerCharacterMesh.rotation.y = player.rotation.y;
+            }
+
+            if (cameraMode === '1st') {
+                if (playerCharacterMesh) playerCharacterMesh.visible = false;
+                camera.position.copy(player.position);
+                camera.position.y += player.height * 0.35;
+                camera.quaternion.setFromEuler(player.rotation);
+            } else {
+                if (playerCharacterMesh) playerCharacterMesh.visible = true;
+                
+                const cameraOffset = new THREE.Vector3(0, 2.0, 4.5);
+                cameraOffset.applyEuler(new THREE.Euler(player.rotation.x * 0.5, player.rotation.y, 0, 'YXZ'));
+                
+                camera.position.copy(player.position).add(cameraOffset);
+                camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
+            }
+
+            checkCheckpoints();
+            checkGoal();
+            checkHazardsAndVoid();
+        }
+
+        function checkCheckpoints() {
+            checkpointMeshes.forEach(cp => {
+                if (!cp.active) {
+                    const dist = player.position.distanceTo(cp.pos);
+                    if (dist < 2.0) {
+                        cp.active = true;
+                        cp.ringMat.color.setHex(0x00ffcc);
+                        lastCheckpoint = cp.pos.clone();
+                        document.getElementById('checkpoint-display').innerText = "Active";
+                        document.getElementById('checkpoint-display').style.color = "#00ffcc";
+                        showToast("CHECKPOINT SAVED!");
+                    }
+                }
+            });
+        }
+
+        function checkGoal() {
+            if (goalMesh) {
+                const dist = player.position.distanceTo(goalMesh.position);
+                if (dist < 2.0) {
+                    if (currentLevel < 50) {
+                        showToast(`LEVEL ${currentLevel} COMPLETED!`);
+                        loadLevel(currentLevel + 1);
+                    } else {
+                        document.exitPointerLock();
+                        document.getElementById('final-deaths').innerText = totalDeaths;
+                        document.getElementById('win-screen').style.display = 'flex';
+                    }
+                }
+            }
+        }
+
+        function checkHazardsAndVoid() {
+            if (player.position.y < VOID_Y) {
+                triggerDeath();
+                return;
+            }
+
+            const feetY = player.position.y - (player.height / 2);
+            for (let hazard of hazardMeshes) {
+                const box = hazard.boundingBox;
+                if (player.position.x >= box.min.x && player.position.x <= box.max.x &&
+                    player.position.z >= box.min.z && player.position.z <= box.max.z &&
+                    feetY <= box.max.y + 0.2 && feetY >= box.min.y - 0.2) {
+                    triggerDeath();
+                    return;
+                }
+            }
+        }
+
+        function triggerDeath() {
+            totalDeaths++;
+            document.getElementById('deaths-display').innerText = totalDeaths;
+            respawnPlayer();
+        }
+
+        function respawnPlayer() {
+            if (lastCheckpoint) {
+                player.position.copy(lastCheckpoint);
+            } else {
+                player.position.set(0, 4, 0);
+            }
+            player.velocity.set(0, 0, 0);
+            player.jumpsLeft = player.maxJumps;
+            updateJumpUI();
+        }
+
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            toast.innerText = text;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, -50%) scale(1.05)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -50%) scale(1.0)';
+            }, 1800);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
 </body>
 </html>
