@@ -281,7 +281,7 @@
                     <div>Deaths: <span class="stat-value" id="deaths-display">0</span></div>
                     <div>Checkpoint: <span class="stat-value" id="checkpoint-display" style="color:#aaa;">None</span></div>
                 </div>
-                <button class="menu-hud-btn" id="hud-menu-btn" onclick="openMenu()">MENU (P)</button>
+                <button class="menu-hud-btn" id="hud-menu-btn" onclick="toggleMenu()">MENU (P)</button>
             </div>
         </div>
         
@@ -289,7 +289,7 @@
 
         <div class="bottom-hud">
             <div class="hud-panel controls-hint">
-                WASD: Move &nbsp;|&nbsp; SPACE: Jump / Double Jump &nbsp;|&nbsp; R: Respawn &nbsp;|&nbsp; P / ESC: Menu
+                WASD: Move &nbsp;|&nbsp; SPACE: Jump / Double Jump &nbsp;|&nbsp; R: Respawn &nbsp;|&nbsp; P: Menu
             </div>
             <div class="hud-panel">
                 <div style="font-size: 11px; margin-bottom: 6px; color: #aaa; font-weight: bold; letter-spacing: 1px;">DOUBLE JUMP</div>
@@ -345,6 +345,7 @@
         
         let cameraMode = '1st';
         let isPaused = false;
+        let isGameStarted = false;
 
         const player = {
             position: new THREE.Vector3(0, 4, 0),
@@ -377,17 +378,30 @@
         function selectPOV(mode) {
             cameraMode = mode;
             ['1st-start', '1st-pause'].forEach(id => {
-                document.getElementById('pov-' + id).className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
+                const el = document.getElementById('pov-' + id);
+                if (el) el.className = `pov-btn ${mode === '1st' ? 'selected' : ''}`;
             });
             ['3rd-start', '3rd-pause'].forEach(id => {
-                document.getElementById('pov-' + id).className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
+                const el = document.getElementById('pov-' + id);
+                if (el) el.className = `pov-btn ${mode === '3rd' ? 'selected' : ''}`;
             });
             document.getElementById('crosshair').style.display = mode === '1st' ? 'block' : 'none';
         }
 
-        function openMenu() {
+        function toggleMenu() {
+            if (!isGameStarted) return;
+            if (isPaused) {
+                resumeGame();
+            } else {
+                pauseGame();
+            }
+        }
+
+        function pauseGame() {
             isPaused = true;
-            document.exitPointerLock();
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
             document.getElementById('pause-screen').style.display = 'flex';
         }
 
@@ -406,6 +420,10 @@
 
         function returnToStartScreen() {
             isPaused = false;
+            isGameStarted = false;
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
             document.getElementById('pause-screen').style.display = 'none';
             document.getElementById('start-screen').style.display = 'flex';
             loadLevel(1);
@@ -454,22 +472,22 @@
             document.addEventListener('mousemove', onMouseMove);
 
             document.getElementById('start-btn').addEventListener('click', () => {
+                isGameStarted = true;
+                isPaused = false;
                 document.getElementById('start-screen').style.display = 'none';
                 renderer.domElement.requestPointerLock();
             });
 
             renderer.domElement.addEventListener('click', () => {
-                if (!isPointerLocked && !isPaused && document.getElementById('start-screen').style.display === 'none') {
+                if (isGameStarted && !isPaused && !isPointerLocked) {
                     renderer.domElement.requestPointerLock();
                 }
             });
 
             document.addEventListener('pointerlockchange', () => {
                 isPointerLocked = (document.pointerLockElement === renderer.domElement);
-                if (!isPointerLocked && document.getElementById('start-screen').style.display === 'none' && document.getElementById('win-screen').style.display === 'none') {
-                    // Show pause screen when pointer lock drops (e.g. Esc key pressed)
-                    document.getElementById('pause-screen').style.display = 'flex';
-                    isPaused = true;
+                if (!isPointerLocked && isGameStarted && document.getElementById('win-screen').style.display === 'none') {
+                    pauseGame();
                 }
             });
 
@@ -481,7 +499,7 @@
                 const delta = Math.min((now - lastTime) / 1000, 0.08);
                 lastTime = now;
 
-                if (isPointerLocked && !isPaused) {
+                if (isPointerLocked && !isPaused && isGameStarted) {
                     updatePlayerPhysics(delta);
                 }
 
@@ -654,4 +672,248 @@
                 let isHazard = false;
                 let color = zone.mainColor;
 
-                if (Math.random() < hazardProbability && i < platform
+                if (Math.random() < hazardProbability && i < platformCount && i > 1) {
+                    isHazard = true;
+                    color = 0xff0033;
+                }
+
+                createPlatform(curr.x, curr.y - 1, curr.z, platformWidth, 2, platformWidth, color, isHazard);
+
+                if (i % checkpointFreq === 0 && i < platformCount - 1 && !isHazard) {
+                    createCheckpoint(curr.x, curr.y, curr.z);
+                }
+            }
+
+            curr.z -= 7;
+            createPlatform(curr.x, curr.y - 1, curr.z, 6, 2, 6, 0x00ffcc);
+            createGoal(curr.x, curr.y + 1.5, curr.z);
+
+            respawnPlayer();
+        }
+
+        function onKeyDown(e) {
+            if (e.code === 'KeyP' || e.key === 'p' || e.key === 'P') {
+                toggleMenu();
+                return;
+            }
+
+            switch (e.code) {
+                case 'KeyW': controls.forward = true; break;
+                case 'KeyS': controls.backward = true; break;
+                case 'KeyA': controls.left = true; break;
+                case 'KeyD': controls.right = true; break;
+                case 'Space': 
+                    if (isPointerLocked && !isPaused) executeJump(); 
+                    break;
+                case 'KeyR':
+                    if (isGameStarted && !isPaused) triggerDeath();
+                    break;
+            }
+        }
+
+        function onKeyUp(e) {
+            switch (e.code) {
+                case 'KeyW': controls.forward = false; break;
+                case 'KeyS': controls.backward = false; break;
+                case 'KeyA': controls.left = false; break;
+                case 'KeyD': controls.right = false; break;
+            }
+        }
+
+        function onMouseMove(e) {
+            if (!isPointerLocked || isPaused) return;
+            player.rotation.y -= e.movementX * mouseSensitivity;
+            player.rotation.x -= e.movementY * mouseSensitivity;
+            player.rotation.x = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, player.rotation.x));
+        }
+
+        function executeJump() {
+            if (player.jumpsLeft > 0) {
+                player.velocity.y = player.jumpStrength;
+                player.jumpsLeft--;
+                updateJumpUI();
+            }
+        }
+
+        function updateJumpUI() {
+            document.getElementById('pip-1').className = `jump-pip ${player.jumpsLeft >= 1 ? 'active' : ''}`;
+            document.getElementById('pip-2').className = `jump-pip ${player.jumpsLeft >= 2 ? 'active' : ''}`;
+        }
+
+        function updatePlayerPhysics(delta) {
+            player.velocity.y -= GRAVITY * delta;
+
+            const moveDir = new THREE.Vector3();
+            if (controls.forward) moveDir.z -= 1;
+            if (controls.backward) moveDir.z += 1;
+            if (controls.left) moveDir.x -= 1;
+            if (controls.right) moveDir.x += 1;
+            moveDir.normalize();
+
+            const yaw = new THREE.Euler(0, player.rotation.y, 0, 'YXZ');
+            moveDir.applyEuler(yaw);
+
+            player.velocity.x = moveDir.x * player.speed;
+            player.velocity.z = moveDir.z * player.speed;
+
+            player.position.x += player.velocity.x * delta;
+            player.position.z += player.velocity.z * delta;
+
+            const nextY = player.position.y + (player.velocity.y * delta);
+            const feetY = nextY - (player.height / 2);
+
+            let groundedPlatform = null;
+            let highestLandingY = -Infinity;
+
+            const rayOffsets = [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(player.radius, 0, 0),
+                new THREE.Vector3(-player.radius, 0, 0),
+                new THREE.Vector3(0, 0, player.radius),
+                new THREE.Vector3(0, 0, -player.radius)
+            ];
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.far = (player.height / 2) + Math.max(0.5, Math.abs(player.velocity.y * delta) + 0.3);
+
+            for (let offset of rayOffsets) {
+                const origin = player.position.clone().add(offset);
+                raycaster.set(origin, new THREE.Vector3(0, -1, 0));
+
+                const hits = raycaster.intersectObjects(levelPlatforms.map(p => p.mesh));
+                if (hits.length > 0) {
+                    const hit = hits[0];
+                    if (hit.point.y > highestLandingY) {
+                        highestLandingY = hit.point.y;
+                        groundedPlatform = hit.object;
+                    }
+                }
+            }
+
+            if (groundedPlatform && player.velocity.y <= 0 && feetY <= highestLandingY + 0.15) {
+                player.position.y = highestLandingY + (player.height / 2);
+                player.velocity.y = 0;
+                if (!player.isGrounded) {
+                    player.isGrounded = true;
+                    player.jumpsLeft = player.maxJumps;
+                    updateJumpUI();
+                }
+            } else {
+                player.position.y = nextY;
+                player.isGrounded = false;
+            }
+
+            if (playerCharacterMesh) {
+                playerCharacterMesh.position.copy(player.position);
+                playerCharacterMesh.position.y -= player.height / 2;
+                playerCharacterMesh.rotation.y = player.rotation.y;
+            }
+
+            if (cameraMode === '1st') {
+                if (playerCharacterMesh) playerCharacterMesh.visible = false;
+                camera.position.copy(player.position);
+                camera.position.y += player.height * 0.35;
+                camera.quaternion.setFromEuler(player.rotation);
+            } else {
+                if (playerCharacterMesh) playerCharacterMesh.visible = true;
+                
+                const cameraOffset = new THREE.Vector3(0, 2.0, 4.5);
+                cameraOffset.applyEuler(new THREE.Euler(player.rotation.x * 0.5, player.rotation.y, 0, 'YXZ'));
+                
+                camera.position.copy(player.position).add(cameraOffset);
+                camera.lookAt(player.position.x, player.position.y + 0.8, player.position.z);
+            }
+
+            checkCheckpoints();
+            checkGoal();
+            checkHazardsAndVoid();
+        }
+
+        function checkCheckpoints() {
+            checkpointMeshes.forEach(cp => {
+                if (!cp.active) {
+                    const dist = player.position.distanceTo(cp.pos);
+                    if (dist < 2.0) {
+                        cp.active = true;
+                        cp.ringMat.color.setHex(0x00ffcc);
+                        lastCheckpoint = cp.pos.clone();
+                        document.getElementById('checkpoint-display').innerText = "Active";
+                        document.getElementById('checkpoint-display').style.color = "#00ffcc";
+                        showToast("CHECKPOINT SAVED!");
+                    }
+                }
+            });
+        }
+
+        function checkGoal() {
+            if (goalMesh) {
+                const dist = player.position.distanceTo(goalMesh.position);
+                if (dist < 2.0) {
+                    if (currentLevel < 50) {
+                        showToast(`LEVEL ${currentLevel} COMPLETED!`);
+                        loadLevel(currentLevel + 1);
+                    } else {
+                        document.exitPointerLock();
+                        document.getElementById('final-deaths').innerText = totalDeaths;
+                        document.getElementById('win-screen').style.display = 'flex';
+                    }
+                }
+            }
+        }
+
+        function checkHazardsAndVoid() {
+            if (player.position.y < VOID_Y) {
+                triggerDeath();
+                return;
+            }
+
+            const feetY = player.position.y - (player.height / 2);
+            for (let hazard of hazardMeshes) {
+                const box = hazard.boundingBox;
+                if (player.position.x >= box.min.x && player.position.x <= box.max.x &&
+                    player.position.z >= box.min.z && player.position.z <= box.max.z &&
+                    feetY <= box.max.y + 0.2 && feetY >= box.min.y - 0.2) {
+                    triggerDeath();
+                    return;
+                }
+            }
+        }
+
+        function triggerDeath() {
+            totalDeaths++;
+            document.getElementById('deaths-display').innerText = totalDeaths;
+            respawnPlayer();
+        }
+
+        function respawnPlayer() {
+            if (lastCheckpoint) {
+                player.position.copy(lastCheckpoint);
+            } else {
+                player.position.set(0, 4, 0);
+            }
+            player.velocity.set(0, 0, 0);
+            player.jumpsLeft = player.maxJumps;
+            updateJumpUI();
+        }
+
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            toast.innerText = text;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, -50%) scale(1.05)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -50%) scale(1.0)';
+            }, 1800);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
